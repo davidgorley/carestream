@@ -126,78 +126,81 @@ def execute_push(app, room_id, push_log_id, media_file_ids):
                 success, msg = adb_clear_old_media(room.ip_address)
                 log_and_print(f'[CLEANUP] {msg}')
 
-                # Step 2: Push all files (including loading screen if it exists)
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # PHASE 1: PUSH STAGE - Push ALL files in one connection (optimized pre-staging)
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # Key benefit: Single connection, all files transferred without reconnection
+                # Device may disconnect after playback - that's expected and OK, files are staged
+                
+                log_and_print(f'╔{"═"*70}╗')
+                log_and_print(f'║ PHASE 1: PUSH STAGE - Staging all files to device (one session)')
+                log_and_print(f'╚{"═"*70}╝')
+                
                 loading_screen_available = False
                 loading_screen_local = os.path.join(os.getenv('MEDIA_PATH', '/carestream/media'), LOADING_SCREEN_FILENAME)
+                files_to_push = []  # Queue of (file_type, local_path, remote_name)
                 
+                # Check if LoadScreen exists
                 logger.info(f'🔍 Looking for LoadScreen.mp4 at: {loading_screen_local}')
-                
                 if os.path.exists(loading_screen_local):
-                    logger.info(f'✓ LoadScreen.mp4 FOUND - attempting to push')
-                    emit_progress(room_id, 'pushing', 0,
-                                  f'Pushing loading screen...',
-                                  current_file=1, total_files=total_files+1)
-                    
-                    try:
-                        success, msg = adb_push_file(room.ip_address, loading_screen_local, LOADING_SCREEN_FILENAME)
-                        if success:
-                            logger.info(f'✓ Loading screen pushed successfully: {msg}')
-                            loading_screen_available = True
-                        else:
-                            logger.error(f'✗ Failed to push loading screen: {msg}')
-                    except Exception as e:
-                        logger.error(f'✗ Exception pushing loading screen: {e}')
+                    logger.info(f'✓ LoadScreen.mp4 FOUND - will be included in push')
+                    loading_screen_available = True
+                    files_to_push.append(('LoadScreen', loading_screen_local, LOADING_SCREEN_FILENAME))
                 else:
                     logger.warning(f'⚠ LoadScreen.mp4 NOT FOUND at {loading_screen_local}')
                     logger.warning(f'  - Loading screens will NOT be displayed between videos')
-                    logger.warning(f'  - Check that LoadScreen.mp4 exists in /carestream/media/ directory')
-                    logger.warning(f'  - Or rebuild Docker container: docker compose up -d --build')
                 
-                # Then push all media files
-                for idx, mf in enumerate(media_files):
-                    file_num = idx + 2 if loading_screen_available else idx + 1
-                    total_with_loading = total_files + 1 if loading_screen_available else total_files
-                    
-                    # Reconnect before each push (device may have disconnected)
-                    if idx > 0 or loading_screen_available:  # Reconnect needed after first push/loadscreen
-                        if not ensure_adb_connection(room.ip_address):
-                            raise Exception(f'Lost connection to device and could not reconnect before pushing {mf.filename}')
+                # Add all media files to push queue
+                for mf in media_files:
+                    files_to_push.append(('Media', mf.filepath, mf.filename))
+                
+                total_to_push = len(files_to_push)
+                log_and_print(f'📤 Staging {total_to_push} file(s) to device in single connection')
+                
+                # Push all files in ONE continuous connection (no reconnection per file)
+                for idx, (file_type, local_path, remote_name) in enumerate(files_to_push):
+                    file_num = idx + 1
                     
                     emit_progress(room_id, 'pushing', 0,
-                                  f'Pushing file {file_num}/{total_with_loading}: {mf.filename}',
-                                  current_file=file_num, total_files=total_with_loading)
+                                  f'Staging {file_type} {file_num}/{total_to_push}: {remote_name}',
+                                  current_file=file_num, total_files=total_to_push)
 
-                    logger.info(f'📤 Pushing media file [{file_num}/{total_with_loading}]: {mf.filename}')
+                    logger.info(f'📤 [{file_type}] File {file_num}/{total_to_push}: {remote_name}')
 
                     def progress_cb(percent, transferred, total, _room_id=room_id,
-                                    _file_num=file_num, _total=total_with_loading, _fn=mf.filename):
+                                    _type=file_type, _file_num=file_num, _total=total_to_push, _fn=remote_name):
                         overall = int(((_file_num - 1) / _total * 100) + (percent / _total))
                         emit_progress(_room_id, 'pushing', percent,
-                                      f'Pushing file {_file_num}/{_total}: {_fn} ({percent}%)',
+                                      f'{_type} {_file_num}/{_total}: {_fn} ({percent}%)',
                                       current_file=_file_num, total_files=_total,
-                                      overall_progress=overall)
+                                      overall_progress=int(overall * 0.5))
 
-                    success, msg = adb_push_file(room.ip_address, mf.filepath, mf.filename, progress_cb)
+                    success, msg = adb_push_file(room.ip_address, local_path, remote_name, progress_cb)
                     if not success:
-                        logger.error(f'✗ Failed to push {mf.filename}: {msg}')
-                        raise Exception(f'Failed to push {mf.filename}: {msg}')
+                        logger.error(f'✗ Failed to push {remote_name}: {msg}')
+                        raise Exception(f'Failed to push {remote_name}: {msg}')
                     
-                    # Small delay between pushes to prevent connection storms
-                    if idx < total_files - 1:  # Don't delay after last file
+                    # Delay between files but stay connected
+                    if idx < total_to_push - 1:
                         time.sleep(ADB_COMMAND_DELAY)
                     
-                    logger.info(f'✓ Media file pushed successfully: {mf.filename}')
-
+                    logger.info(f'✓ [{file_type}] Staged: {remote_name}')
                     emit_progress(room_id, 'pushing', 100,
-                                  f'File {file_num}/{total_with_loading} pushed: {mf.filename}',
-                                  current_file=file_num, total_files=total_with_loading,
-                                  overall_progress=int(file_num / total_with_loading * 50))
+                                  f'{file_type} {file_num}/{total_to_push}: {remote_name}',
+                                  current_file=file_num, total_files=total_to_push,
+                                  overall_progress=int((file_num / total_to_push) * 50))
+                
+                log_and_print(f'✓ PHASE 1 COMPLETE: All {total_to_push} file(s) staged on device')
 
-                # Step 3: Sequential playback with loading screen between videos
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # PHASE 2: PLAYBACK STAGE - Sequential video playback (files already staged)
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # Key benefit: No uploading, just launching (minimal network overhead)
+                # Device disconnects are expected and handled gracefully
+                
                 log_and_print(f'╔{"═"*70}╗')
-                log_and_print(f'║ STARTING PLAYBACK PHASE: {total_files} video(s) total')
-                log_and_print(f'║ LoadScreen available: {loading_screen_available}')
-                log_and_print(f'║ LoadScreen will show between videos: {loading_screen_available and total_files > 1}')
+                log_and_print(f'║ PHASE 2: PLAYBACK STAGE - Sequential video playback')
+                log_and_print(f'║ Files available: {total_files} video(s), LoadScreen: {loading_screen_available}')
                 log_and_print(f'╚{"═"*70}╝')
                 
                 for idx, mf in enumerate(media_files):
@@ -217,11 +220,10 @@ def execute_push(app, room_id, push_log_id, media_file_ids):
                     log_and_print(f'║ Duration: {mf.duration}s')
                     log_and_print(f'╚{"─"*70}╝')
                     
-                    # Ensure connection before launch (previous video may have disconnected it)
+                    # Ensure connection before launch attempt
+                    # Note: Device may reconnect, or may not - that's OK, launch will try and reconnect if needed
                     if idx > 0:
-                        if not ensure_adb_connection(room.ip_address):
-                            log_and_print(f'✗ [VIDEO {file_num}/{total_files}] Could not reconnect to launch video', 'error')
-                            continue
+                        ensure_adb_connection(room.ip_address)  # Attempt to reconnect, don't fail if it can't
                     
                     success, msg = adb_launch_video(room.ip_address, mf.filename)
                     
@@ -254,22 +256,19 @@ def execute_push(app, room_id, push_log_id, media_file_ids):
                         log_and_print(f'[VIDEO {file_num}/{total_files}] → Launching LoadScreen')
                         time.sleep(ADB_COMMAND_DELAY)  # Protect against ADB connection storms
                         
-                        # Reconnect before launching next content (video playback may have disconnected)
-                        if not ensure_adb_connection(room.ip_address):
-                            log_and_print(f'[VIDEO {file_num}/{total_files}] Could not reconnect to launch LoadScreen', 'error')
-                        else:
-                            try:
-                                success, msg = adb_launch_video(room.ip_address, LOADING_SCREEN_FILENAME)
-                                if success:
-                                    log_and_print(f'[VIDEO {file_num}/{total_files}] ✓ LoadScreen launched')
-                                    # Let LoadScreen play
-                                    time.sleep(LOADING_SCREEN_DURATION)
-                                else:
-                                    log_and_print(f'[VIDEO {file_num}/{total_files}] Could not launch LoadScreen: {msg}', 'error')
-                            except Exception as e:
-                                log_and_print(f'[VIDEO {file_num}/{total_files}] LoadScreen error: {e}', 'error')
-                                # Fallback: wait for full duration
-                                time.sleep(mf.duration * 0.2 + 1)
+                        # Attempt reconnection before LoadScreen launch
+                        ensure_adb_connection(room.ip_address)  # Soft reconnect, don't fail
+                        
+                        try:
+                            success, msg = adb_launch_video(room.ip_address, LOADING_SCREEN_FILENAME)
+                            if success:
+                                log_and_print(f'[VIDEO {file_num}/{total_files}] ✓ LoadScreen launched')
+                                # Let LoadScreen play for its duration
+                                time.sleep(LOADING_SCREEN_DURATION)
+                            else:
+                                log_and_print(f'[VIDEO {file_num}/{total_files}] Could not launch LoadScreen: {msg}', 'error')
+                        except Exception as e:
+                            log_and_print(f'[VIDEO {file_num}/{total_files}] LoadScreen error: {e}', 'error')
                     else:
                         # Last video or no LoadScreen - wait full duration
                         if mf.duration and mf.duration > 0:
@@ -285,46 +284,39 @@ def execute_push(app, room_id, push_log_id, media_file_ids):
                 
                 logger.info(f'╔{"═"*70}╗')
                 logger.info(f'║ PLAYBACK COMPLETE: All {total_files} video(s) finished')
+                logger.info(f'║ Cleanup phase starting...')
                 logger.info(f'╚{"═"*70}╝')
 
                 # Step 4: Stop playback and return to Vizabli
-                logger.info(f'╔{"═"*70}╗')
-                logger.info(f'║ STEP 4: CLEANUP AND RETURN TO VIZABLI')
-                logger.info(f'╚{"═"*70}╝')
+                emit_progress(room_id, 'completing', 95, 'Cleanup: Returning device to Vizabli...')
                 
-                emit_progress(room_id, 'completing', 98, 'Stopping playback and returning to Vizabli...')
+                # Attempt reconnection for cleanup (soft attempt)
+                ensure_adb_connection(room.ip_address)
                 
-                # Reconnect before returning to Vizabli (video playback disconnected device)
-                if not ensure_adb_connection(room.ip_address):
-                    log_and_print(f'⚠ Could not reconnect to device for cleanup - it may still be in playback', 'warning')
-                    # Don't fail completely, attempt to continue
-                
-                logger.info(f'[RETURN] 🚀 Launching Vizabli launcher on device...')
+                logger.info(f'[RETURN] 🚀 Launching Vizabli...')
                 success = adb_return_to_vizabli(room.ip_address)
-                
                 if success:
-                    logger.info(f'[RETURN] ✓ Vizabli launched successfully - device returning to home screen')
+                    logger.info(f'[RETURN] ✓ Vizabli launched - device returning to home')
                 else:
-                    logger.error(f'[RETURN] ✗ Failed to launch Vizabli - device may still show playback screen')
+                    logger.warning(f'[RETURN] ⚠ Could not launch Vizabli (device offline?)')
                 
-                # Force-stop video player app to clear all background state and cache
-                # This prevents the app from appearing in recents and removes any lingering cached content
-                logger.info(f'[CLEANUP] 🛑 Force-stopping video player app(s)...')
-                time.sleep(ADB_COMMAND_DELAY)  # Protect against ADB command storms
+                # Force-stop video player to clean up
+                logger.info(f'[CLEANUP] 🛑 Force-stopping video player...')
+                time.sleep(ADB_COMMAND_DELAY)
                 success, msg = adb_force_stop_video_player(room.ip_address)
                 logger.info(f'[CLEANUP] {msg}')
-
-                # Mark success
+                
+                # Mark success in database
                 room.push_status = 'complete'
                 room.last_push_file = push_log.media_ref
                 room.last_push_time = datetime.utcnow()
                 push_log.status = 'success'
                 push_log.completed_at = datetime.utcnow()
                 db.session.commit()
-
-                logger.info(f'╔{"═"*70}╗')
-                logger.info(f'║ ✓ PUSH COMPLETE AND SUCCESSFUL')
-                logger.info(f'╚{"═"*70}╝')
+                
+                log_and_print(f'╋{"═"*70}╖')
+                log_and_print(f'║ ✓ PUSH AND PLAYBACK COMPLETE AND SUCCESSFUL')
+                log_and_print(f'╚{"═"*70}╝')
                 
                 emit_progress(room_id, 'complete', 100, 'Push and playback complete')
                 socketio.emit('room_update', room.to_dict())
