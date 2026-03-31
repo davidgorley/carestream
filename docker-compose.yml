@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  carestream:
+    build:
+      context: .
+      args:
+        - REACT_APP_AUTH_USER_PW=${REACT_APP_AUTH_USER_PW}
+        - REACT_APP_AUTH_ADMIN_PW=${REACT_APP_AUTH_ADMIN_PW}
+        - REACT_APP_AUTH_SUPERUSER_PW=${REACT_APP_AUTH_SUPERUSER_PW}
+        - REACT_APP_VIDEO_PLAYER_PACKAGE=${REACT_APP_VIDEO_PLAYER_PACKAGE}
+    container_name: carestream
+    env_file: .env
+    environment:
+      - TZ=America/Chicago
+    volumes:
+      # Named volumes for reliable data persistence
+      # These persist across container restarts and rebuilds
+      # Existing data is preserved when container is rebuilt
+      - carestream-media:/carestream/media
+      - carestream-data:/carestream/data
+    restart: unless-stopped
+    network_mode: host
+
+# Named volumes preserve data across container lifecycle
+# Use 'docker volume ls' to view, 'docker volume rm <name>' to delete
+volumes:
+  carestream-media:
+    driver: local
+  carestream-data:
+    driver: local

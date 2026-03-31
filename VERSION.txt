@@ -1,0 +1,24 @@
+CareStream v2.3.1
+Released: 2026-03-31
+
+LATEST STABLE RELEASE - Reconnection fix and device stability improvements
+
+Key Fix in v2.3.1:
+- Viewsonic device ADB reconnection: Gracefully handles device disconnect during video playback
+- Multiple video push: Fixed temporary offline issue when pushing back-to-back videos
+
+Key Improvements:
+- Video playback fixed: Full completion without early cutting off
+- ADB connection stability improved: No more mid-sequence disconnects
+- Old content replay eliminated: Complete device state cleanup
+- Background app state cleared: Clean recents/multitasking after playback
+
+Changes from v2.2.1:
+- Completely redesigned playback timing logic
+- Added old media cleanup at push start
+- Added video player force-stop at push completion
+- Protected ADB commands with safety delays
+- Removed aggressive device connection logic
+
+For deployment details, see CHANGELOG.md
+For technical details, see documentation in app/services/
