@@ -6,6 +6,7 @@ from app.models.media import MediaFile
 from app.models.playlist import Playlist, PushLog
 from app.services.push_service import execute_push
 from datetime import datetime
+from app.utils import get_tz_aware_now
 
 push_bp = Blueprint('push', __name__)
 
@@ -63,7 +64,7 @@ def push_content():
     push_log = PushLog(
         room_id=room.id,
         media_ref=media_ref,
-        started_at=datetime.utcnow(),
+        started_at=get_tz_aware_now(),
         status='pending'
     )
     db.session.add(push_log)

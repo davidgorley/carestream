@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getMedia, getFolders, uploadMedia, deleteMedia, renameMedia, moveMedia, createFolder, deleteFolder, getPlaylists, getPlaylist, createPlaylist, updatePlaylist, deletePlaylist } from '../api';
+import { getMedia, getFolders, uploadMedia, deleteMedia, renameMedia, moveMedia, createFolder, deleteFolder, getPlaylists, getPlaylist, createPlaylist, updatePlaylist, deletePlaylist, getTimezone } from '../api';
 
 function MediaManager() {
   const [activeTab, setActiveTab] = useState('files');
@@ -8,6 +8,7 @@ function MediaManager() {
   const [playlists, setPlaylists] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [timezone, setTimezone] = useState('America/New_York');
   const [dragOver, setDragOver] = useState(false);
   const [toasts, setToasts] = useState([]);
   const fileInputRef = useRef(null);
@@ -46,7 +47,7 @@ function MediaManager() {
     try { setPlaylists(await getPlaylists()); } catch (e) { console.error(e); }
   }, []);
 
-  useEffect(() => { loadMedia(); loadFolders(); loadPlaylists(); }, [loadMedia, loadFolders, loadPlaylists]);
+  useEffect(() => { loadMedia(); loadFolders(); loadPlaylists(); getTimezone().then(data => setTimezone(data.timezone)).catch(e => console.error(e)); }, [loadMedia, loadFolders, loadPlaylists]);
 
   // Build hierarchical folder structure from flat folder list
   const buildFolderTree = () => {
@@ -388,6 +389,12 @@ function MediaManager() {
     const m = Math.floor(s / 60);
     const sec = Math.floor(s % 60);
     return m + ':' + sec.toString().padStart(2, '0');
+  };
+
+  const formatTime = (iso) => {
+    if (!iso) return 'Never';
+    const date = new Date(iso);
+    return date.toLocaleDateString('en-US', { timeZone: timezone });
   };
 
   const formatSize = (b) => {
@@ -804,7 +811,7 @@ function MediaManager() {
                         <td><i className="fas fa-list" style={{ marginRight: 8, color: 'var(--primary)' }}></i>{p.name}</td>
                         <td>{p.item_count}</td>
                         <td>{formatDuration(p.total_duration)}</td>
-                        <td>{new Date(p.created_at).toLocaleDateString('en-US', { timeZone: 'America/Chicago' })}</td>
+                        <td>{new Date(p.created_at).toLocaleDateString('en-US', { timeZone: timezone })}</td>
                         <td>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button className="btn btn-secondary btn-sm" onClick={() => openPlaylistBuilder(p)}>

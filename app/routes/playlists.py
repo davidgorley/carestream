@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from app import db
 from app.models.playlist import Playlist, PlaylistItem
 from app.models.media import MediaFile
+from app.utils import get_tz_aware_now
 
 playlists_bp = Blueprint('playlists', __name__)
 
@@ -28,7 +29,7 @@ def create_playlist():
     if existing:
         return jsonify({'error': f'Playlist "{data["name"]}" already exists'}), 409
 
-    playlist = Playlist(name=data['name'])
+    playlist = Playlist(name=data['name'], created_at=get_tz_aware_now())
     db.session.add(playlist)
     db.session.flush()
 

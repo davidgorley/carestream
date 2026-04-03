@@ -14,26 +14,60 @@ PORT=${CARESTREAM_PORT:-8000}
 # This provides a clean, reliable loading screen for video playback
 LOADSCREEN_PATH="/carestream/media/LoadScreen.mp4"
 
-if [ ! -f "$LOADSCREEN_PATH" ]; then
-    echo "Generating LoadScreen.mp4 for video transitions..."
-    mkdir -p /carestream/media
-    
-    # Create a 4 second loading screen with text and animated rotating loading wheel
-    # The wheel is created using 8 rotating circles that create a spinning effect
-    ffmpeg -f lavfi -i color=c=black:s=1920x1080:d=4 \
-           -vf "drawtext=text='LOADING YOUR NEXT VIDEO ...':fontsize=90:fontcolor=white:x=(w-text_w)/2:y=(h*0.3):line_spacing=10, \
-                drawcircle=x=(w/2)+150*cos(2*PI*t/2):y=(h*0.65)+150*sin(2*PI*t/2):r=25:color=white@0.9:t=fill, \
-                drawcircle=x=(w/2)+150*cos(2*PI*t/2+PI/4):y=(h*0.65)+150*sin(2*PI*t/2+PI/4):r=25:color=white@0.7:t=fill, \
-                drawcircle=x=(w/2)+150*cos(2*PI*t/2+PI/2):y=(h*0.65)+150*sin(2*PI*t/2+PI/2):r=25:color=white@0.5:t=fill, \
-                drawcircle=x=(w/2)+150*cos(2*PI*t/2+3*PI/4):y=(h*0.65)+150*sin(2*PI*t/2+3*PI/4):r=25:color=white@0.3:t=fill" \
-           -pix_fmt yuv420p -c:v libx264 -preset ultrafast -crf 23 \
-           -movflags +faststart \
-           -an \
-           "$LOADSCREEN_PATH" -y 2>&1 | grep -v "frame=" | tail -1
-    
+# Always regenerate LoadScreen.mp4 on startup to pick up any changes.
+# It is auto-generated content, not user media - never cache it from a previous run.
+echo "Generating LoadScreen.mp4 for video transitions..."
+mkdir -p /carestream/media
+if true; then
+
+    # Square video (1080x1080) works in BOTH portrait and landscape orientations:
+    #   - Landscape device: pillarboxed symmetrically, fills full height
+    #   - Portrait device:  letterboxed symmetrically, fills full width
+    # 1080px is a safe middle-ground — looks sharp on 720p, 1080p, and 4K displays.
+    #
+    # Font size is derived arithmetically so text fills exactly ~80% of the video width,
+    # regardless of resolution.  No hardcoded pixel assumptions.
+    #
+    # "LOADING NEXT VIDEO..." = 21 chars.
+    # DejaVuSans-Bold average char advance ≈ 0.58 × fontsize.
+    # Target text_w = VIDEO_W × 0.80
+    # ⟹  fontsize = VIDEO_W × 80 / 100 / 21 × 100 / 58
+    #             = VIDEO_W × 8000 / (21 × 58)
+    #             = VIDEO_W × 8000 / 1218  ≈  VIDEO_W / 15
+
+    VIDEO_W=1080
+    VIDEO_H=1080
+    FONTSIZE=$(( VIDEO_W / 15 ))   # 72px at 1080 → text ≈ 864px ≈ 80% of 1080
+
+    FONT_FILE="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+    if [ ! -f "$FONT_FILE" ]; then
+        echo "⚠ Font not found at $FONT_FILE - generating plain black screen as fallback"
+        ffmpeg -y \
+            -f lavfi -i "color=c=black:size=${VIDEO_W}x${VIDEO_H}:rate=30" \
+            -f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=44100" \
+            -t 5 \
+            -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p \
+            -c:a aac -b:a 128k \
+            -movflags +faststart \
+            "$LOADSCREEN_PATH" \
+            -loglevel error
+    else
+        ffmpeg -y \
+            -f lavfi -i "color=c=black:size=${VIDEO_W}x${VIDEO_H}:rate=30" \
+            -f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=44100" \
+            -t 5 \
+            -vf "drawtext=fontfile=${FONT_FILE}:text='LOADING NEXT VIDEO...':fontcolor=white:fontsize=${FONTSIZE}:x=(w-text_w)/2:y=(h-text_h)/2" \
+            -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p \
+            -c:a aac -b:a 128k \
+            -movflags +faststart \
+            "$LOADSCREEN_PATH" \
+            -loglevel error
+    fi
+
     if [ -f "$LOADSCREEN_PATH" ]; then
         FILE_SIZE=$(du -h "$LOADSCREEN_PATH" | cut -f1)
-        echo "✓ LoadScreen.mp4 generated successfully ($FILE_SIZE)"
+        echo "✓ LoadScreen.mp4 generated successfully (${VIDEO_W}x${VIDEO_H}, fontsize=${FONTSIZE}) ($FILE_SIZE)"
     else
         echo "⚠ Warning: Failed to generate LoadScreen.mp4 - loading screens will be skipped"
     fi

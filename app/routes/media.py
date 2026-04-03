@@ -6,6 +6,7 @@ from app import db
 from app.models.media import MediaFile
 from app.models.folder import Folder
 from datetime import datetime
+from app.utils import get_tz_aware_now
 
 media_bp = Blueprint('media', __name__)
 
@@ -160,7 +161,7 @@ def upload_media():
         filepath=filepath,
         filesize=filesize,
         duration=duration,
-        uploaded_at=datetime.utcnow()
+        uploaded_at=get_tz_aware_now()
     )
     db.session.add(media_file)
     db.session.commit()

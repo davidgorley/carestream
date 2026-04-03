@@ -5,6 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from app import db, socketio
 from app.models.room import Room
 from app.services.adb_service import adb_check_device
+from app.utils import get_tz_aware_now_with_app
 
 logger = logging.getLogger(__name__)
 scheduler = None
@@ -18,11 +19,11 @@ def check_all_devices(app):
             try:
                 status = adb_check_device(room.ip_address)
                 room.status = status
-                room.last_checked = datetime.utcnow()
+                room.last_checked = get_tz_aware_now_with_app(app)
                 logger.debug(f'Heartbeat: {room.room_number} ({room.ip_address}) -> {status}')
             except Exception as e:
                 room.status = 'unknown'
-                room.last_checked = datetime.utcnow()
+                room.last_checked = get_tz_aware_now_with_app(app)
                 logger.error(f'Heartbeat error for {room.room_number}: {e}')
 
         db.session.commit()

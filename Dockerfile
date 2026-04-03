@@ -28,11 +28,12 @@ FROM python:3.11-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies: adb and ffmpeg (includes ffprobe)
+# Install system dependencies: adb, ffmpeg (includes ffprobe), and a font for LoadScreen generation
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         android-tools-adb \
         ffmpeg \
+        fonts-dejavu-core \
         curl && \
     rm -rf /var/lib/apt/lists/*
 

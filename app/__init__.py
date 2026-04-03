@@ -53,7 +53,12 @@ def create_app():
 
     with app.app_context():
         from app.models import room, media, playlist  # noqa
+        from app.models.settings import Settings
         db.create_all()
+
+        # Initialize default timezone if not set
+        if not Settings.get('timezone'):
+            Settings.set('timezone', os.getenv('TZ', 'America/New_York'))
 
         # Start heartbeat service
         from app.services.heartbeat_service import start_heartbeat

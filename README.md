@@ -64,6 +64,29 @@ All configuration is via the `.env` file:
 | `HEARTBEAT_INTERVAL` | `300` | Device check interval (seconds) |
 | `ADB_PUSH_DEST` | `/sdcard/carestream/` | Destination path on devices |
 | `SECRET_KEY` | `change-me` | Flask secret key |
+| `TZ` | `America/New_York` | Default timezone for timestamps (Python timezone name) |
+
+### Timezone Configuration
+
+CareStream displays all timestamps in the timezone you select via the Settings UI. This applies to all timestamps across the application:
+- Room check times (Dashboard)
+- Push start/completion times (push logs)
+- Media upload times (Media Manager)
+- Playlist creation times (Media Manager)
+
+**To change timezone:**
+
+1. Open Settings → Timezone
+2. Select your timezone from the dropdown (18 common timezones available: EST, CST, PST, UTC, GMT, CET, IST, JST, AEST, etc.)
+3. Click "Save Timezone"
+4. All timestamps across the application instantly update
+
+**Timezone selection priority:**
+1. **User-selected timezone** (saved in database via Settings UI) — takes highest priority
+2. **TZ environment variable** — used if no user selection exists
+3. **Default timezone** (America/New_York) — used if neither of above available
+
+**Supported timezones:** EST, CST, PST, MST, UTC/GMT, London (GMT), Paris (CET), Dubai (GST), Delhi (IST), Bangkok (ICT), Tokyo (JST), Sydney (AEDT), and others.
 
 ## Architecture
 

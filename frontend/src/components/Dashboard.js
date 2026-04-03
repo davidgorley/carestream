@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getRooms, getMedia, getPlaylists, pushContent, getPushLogs } from '../api';
+import { getRooms, getMedia, getPlaylists, pushContent, getPushLogs, getTimezone } from '../api';
 import socket from '../socket';
 
 function Dashboard() {
@@ -19,6 +19,7 @@ function Dashboard() {
   const [pushing, setPushing] = useState(false);
   const [modalTab, setModalTab] = useState('push');
   const [pushHistory, setPushHistory] = useState([]);
+  const [timezone, setTimezone] = useState('America/New_York');
 
   const loadRooms = useCallback(async () => {
     try { const data = await getRooms(); setRooms(data); } catch (e) { console.error(e); }
@@ -26,6 +27,7 @@ function Dashboard() {
 
   useEffect(() => {
     loadRooms();
+    getTimezone().then(data => setTimezone(data.timezone)).catch(e => console.error(e));
     const interval = setInterval(loadRooms, 30000);
     return () => clearInterval(interval);
   }, [loadRooms]);
@@ -136,7 +138,7 @@ function Dashboard() {
   const formatTime = (iso) => {
     if (!iso) return 'Never';
     const date = new Date(iso);
-    return date.toLocaleString('en-US', { timeZone: 'America/Chicago' });
+    return date.toLocaleString('en-US', { timeZone: timezone });
   };
 
   return (

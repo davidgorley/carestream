@@ -69,3 +69,5 @@ export const getPushLogs = (roomId) => fetchJSON(`/push/log${roomId ? '?room_id=
 // Settings
 export const getSettings = () => fetchJSON('/settings');
 export const updateSettings = (data) => fetchJSON('/settings', { method: 'PUT', body: JSON.stringify(data) });
+export const getTimezone = () => fetchJSON('/settings/timezone');
+export const setTimezone = (timezone) => fetchJSON('/settings/timezone', { method: 'POST', body: JSON.stringify({ timezone }) });

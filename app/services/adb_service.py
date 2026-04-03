@@ -393,7 +393,8 @@ def adb_force_stop_video_player(ip_address):
     """
     serial = get_device_serial(ip_address)
     
-    # List of common video player packages to try to stop
+    # List of common video player packages to try to stop.
+    # Must mirror the packages attempted in adb_launch_video to guarantee complete cleanup.
     video_players = [
         'android.rk.RockVideoPlayer',           # RockChip (hospital standard)
         'org.videolan.vlc',                      # VLC Media Player
@@ -401,6 +402,9 @@ def adb_force_stop_video_player(ip_address):
         'com.mxtech.videoplayer.ad',             # MX Player
         'com.archos.mediacenter.video',          # Archos
         'com.android.systemui.media',            # System media
+        'com.reveldigital.player',               # Revel Digital (Viewsonic IFP/signage)
+        'com.iadea.player.general',              # iAdea player (Viewsonic)
+        'com.ifpdos.player',                     # ifpdos (Viewsonic IFP series)
     ]
     
     stopped_count = 0

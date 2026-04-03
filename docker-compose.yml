@@ -12,7 +12,7 @@ services:
     container_name: carestream
     env_file: .env
     environment:
-      - TZ=America/Chicago
+      - TZ=America/New_York
     volumes:
       # Named volumes for reliable data persistence
       # These persist across container restarts and rebuilds

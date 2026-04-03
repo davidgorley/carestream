@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getRooms, createRoom, updateRoom, deleteRoom, csvPreview, csvImport, csvTemplateUrl, getSettings, updateSettings } from '../api';
+import { getRooms, createRoom, updateRoom, deleteRoom, csvPreview, csvImport, csvTemplateUrl, getSettings, updateSettings, getTimezone, setTimezone } from '../api';
 
 function Settings() {
   const [activeTab, setActiveTab] = useState('rooms');
   const [rooms, setRooms] = useState([]);
   const [settings, setSettings] = useState({});
+  const [timezone, setTimezoneState] = useState('America/New_York');
+  const [availableTimezones, setAvailableTimezones] = useState([]);
   const [toasts, setToasts] = useState([]);
 
   // Room form
@@ -31,7 +33,15 @@ function Settings() {
     try { setSettings(await getSettings()); } catch (e) { console.error(e); }
   }, []);
 
-  useEffect(() => { loadRooms(); loadSettings(); }, [loadRooms, loadSettings]);
+  const loadTimezone = useCallback(async () => {
+    try {
+      const tzData = await getTimezone();
+      setTimezoneState(tzData.timezone);
+      setAvailableTimezones(tzData.available_timezones);
+    } catch (e) { console.error(e); }
+  }, []);
+
+  useEffect(() => { loadRooms(); loadSettings(); loadTimezone(); }, [loadRooms, loadSettings, loadTimezone]);
 
   const openRoomForm = (room = null) => {
     if (room) {
@@ -98,6 +108,14 @@ function Settings() {
     try {
       const result = await updateSettings(settings);
       addToast(result.message || 'Settings saved', 'success');
+    } catch (e) { addToast(e.message, 'error'); }
+  };
+
+  const saveTimezone = async () => {
+    try {
+      const result = await setTimezone(timezone);
+      addToast(result.message || 'Timezone saved', 'success');
+      await loadTimezone();
     } catch (e) { addToast(e.message, 'error'); }
   };
 
@@ -235,6 +253,26 @@ function Settings() {
           </div>
           <button className="btn btn-primary" onClick={saveSettings} style={{ marginTop: 8 }}>
             <i className="fas fa-save"></i> Save Configuration
+          </button>
+
+          <hr style={{ margin: '30px 0', borderColor: 'var(--border)' }} />
+
+          <h4 style={{ marginBottom: 20 }}>Timezone Settings</h4>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
+            Select your timezone. All timestamps will automatically display in the selected timezone.
+          </p>
+          <div style={{ maxWidth: 400 }}>
+            <div className="form-group">
+              <label>Timezone</label>
+              <select className="input" value={timezone} onChange={e => setTimezoneState(e.target.value)}>
+                {availableTimezones.map(tz => (
+                  <option key={tz} value={tz}>{tz}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={saveTimezone} style={{ marginTop: 8 }}>
+            <i className="fas fa-save"></i> Save Timezone
           </button>
         </div>
       )}

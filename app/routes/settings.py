@@ -2,8 +2,32 @@ import os
 import socket
 from flask import Blueprint, request, jsonify, current_app
 from dotenv import dotenv_values
+from app import db
+from app.models.settings import Settings
 
 settings_bp = Blueprint('settings', __name__)
+
+# Valid timezones
+VALID_TIMEZONES = [
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Los_Angeles',
+    'America/Anchorage',
+    'Pacific/Honolulu',
+    'UTC',
+    'Europe/London',
+    'Europe/Paris',
+    'Europe/Berlin',
+    'Asia/Tokyo',
+    'Asia/Shanghai',
+    'Asia/Hong_Kong',
+    'Asia/Bangkok',
+    'Asia/Singapore',
+    'Australia/Sydney',
+    'Australia/Brisbane',
+    'Australia/Melbourne'
+]
 
 def get_env_file_path_for_reading():
     """Find existing .env file for reading."""
@@ -136,3 +160,38 @@ def update_settings():
         return jsonify({'message': f'Settings saved successfully to {env_file}', 'note': 'Port changes require container restart'})
     except Exception as e:
         return jsonify({'error': f'Failed to save settings: {str(e)}'}), 500
+
+
+@settings_bp.route('/timezone', methods=['GET'])
+def get_timezone():
+    """Get the current timezone setting."""
+    current_tz = Settings.get('timezone', 'America/New_York')
+    return jsonify({
+        'timezone': current_tz,
+        'available_timezones': VALID_TIMEZONES
+    })
+
+
+@settings_bp.route('/timezone', methods=['POST'])
+def set_timezone():
+    """Set the timezone setting."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    timezone = data.get('timezone')
+    if not timezone:
+        return jsonify({'error': 'Timezone is required'}), 400
+
+    # Validate timezone
+    if timezone not in VALID_TIMEZONES:
+        return jsonify({'error': f'Invalid timezone: {timezone}. Must be one of: {", ".join(VALID_TIMEZONES)}'}), 400
+
+    # Save to database
+    Settings.set('timezone', timezone)
+
+    return jsonify({
+        'success': True,
+        'timezone': timezone,
+        'message': f'Timezone updated to {timezone}. All timestamps will now use this timezone.'
+    })
