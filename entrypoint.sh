@@ -46,7 +46,8 @@ if true; then
         ffmpeg -y \
             -f lavfi -i "color=c=black:size=${VIDEO_W}x${VIDEO_H}:rate=30" \
             -f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=44100" \
-            -t 5 \
+            -t 7 \
+            -vf "fade=t=in:st=0:d=2.5,fade=t=out:st=2.5:d=2.0" \
             -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p \
             -c:a aac -b:a 128k \
             -movflags +faststart \
@@ -56,8 +57,8 @@ if true; then
         ffmpeg -y \
             -f lavfi -i "color=c=black:size=${VIDEO_W}x${VIDEO_H}:rate=30" \
             -f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=44100" \
-            -t 5 \
-            -vf "drawtext=fontfile=${FONT_FILE}:text='LOADING NEXT VIDEO...':fontcolor=white:fontsize=${FONTSIZE}:x=(w-text_w)/2:y=(h-text_h)/2" \
+            -t 7 \
+            -vf "drawtext=fontfile=${FONT_FILE}:text='LOADING NEXT VIDEO...':fontcolor=white:fontsize=${FONTSIZE}:x=(w-text_w)/2:y=(h-text_h)/2,fade=t=in:st=0:d=2.5,fade=t=out:st=2.5:d=2.0" \
             -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p \
             -c:a aac -b:a 128k \
             -movflags +faststart \

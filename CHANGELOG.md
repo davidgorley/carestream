@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6] - 2026-04-03
+
+### Changed
+- **LoadScreen Animation Timing** - Enhanced visual presentation of loading transitions
+  - Fade-in duration: Increased from 1.0s to 2.5s for smoother, more graceful text appearance
+  - Fade-out duration: Increased from 0.3s to 2.0s for elegant fade-to-black transition
+  - Total visible text time: ~2.5 seconds before fade-out begins
+  - Next video launches precisely when screen reaches full black (no mid-animation cutoff)
+
+- **PRE_LAUNCH_BUFFER Adjustment** - Timing synchronization improved
+  - Increased from 1.5s to 2.0s to accommodate new fade timing
+  - Ensures next video intent fires after fade-to-black completes (at 4.5s mark)
+  - Maintains seamless LoadScreen → Next Video transition without visual glitches
+  - Prevents premature video launch before animation finishes
+
+### Technical
+- LoadScreen duration remains 7 seconds (full duration; visible content ends at ~4.5s, black screen for ~2.5s before return to Vizabli)
+- Fade filters applied to both font text and fallback black screen for consistency
+- ffmpeg filter chain: `fade=t=in:st=0:d=2.5,fade=t=out:st=2.5:d=2.0` for smooth transitions
+
 ## [2.5.1] - 2026-04-03
 
 ### Fixed

@@ -31,7 +31,7 @@ def log_and_print(msg, level='info'):
 PLAYBACK_BUFFER_SECONDS = 0.05
 VIDEO_START_DELAY = 0.5  # Time to wait after launching before considering it started
 LOADING_SCREEN_FILENAME = 'LoadScreen.mp4'
-LOADING_SCREEN_DURATION = 4.0  # Duration of loading screen (4 seconds - matches your custom video)
+LOADING_SCREEN_DURATION = 7.0  # Duration of loading screen (7 seconds: fade-in, 4 pulses, fade to black)
 ADB_COMMAND_DELAY = 0.15  # Small delay between rapid ADB commands to prevent connection storms
 RECONNECT_WAIT_TIME = 1.0  # Time to wait after device disconnects before attempting reconnect
 RECONNECT_MAX_ATTEMPTS = 3  # Maximum reconnection attempts before giving up
@@ -39,7 +39,7 @@ RECONNECT_MAX_ATTEMPTS = 3  # Maximum reconnection attempts before giving up
 # ADB am-start takes ~1-1.5s to execute on the device. By issuing the command this many
 # seconds early, the device has already switched to the new video by the time LoadScreen
 # naturally ends — giving a zero-gap seamless transition.
-PRE_LAUNCH_BUFFER = 1.5
+PRE_LAUNCH_BUFFER = 2.0
 
 # Room-level locks to prevent concurrent pushes to same device
 room_push_locks = {}

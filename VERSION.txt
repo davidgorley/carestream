@@ -1,23 +1,14 @@
-CareStream v2.5.1
+CareStream v2.6
 Released: 2026-04-03
 
-Android Auto-Queue LoadScreen Fix. FIXED: LoadScreen.mp4 no longer auto-plays after last video. FIXED: Works correctly for any number of assigned videos (1, 2, 10, etc). CRITICAL: Delete LoadScreen before last video starts, ensure zero .mp4 files after playback completes.
-
-Key Fix in v2.3.1:
-- Viewsonic device ADB reconnection: Gracefully handles device disconnect during video playback
-- Multiple video push: Fixed temporary offline issue when pushing back-to-back videos
+LoadScreen Animation & Timing Enhancement. IMPROVED: Graceful 2.5s fade-in of LoadScreen text. IMPROVED: Smooth 2.0s fade-to-black transition before next video launch at 4.5s. CHANGED: PRE_LAUNCH_BUFFER increased from 1.5s to 2.0s for consistent timing. Total LoadScreen duration: 7 seconds.
 
 Key Improvements:
-- Video playback fixed: Full completion without early cutting off
-- ADB connection stability improved: No more mid-sequence disconnects
-- Old content replay eliminated: Complete device state cleanup
-- Background app state cleared: Clean recents/multitasking after playback
-
-Changes from v2.2.1:
-- Completely redesigned playback timing logic
-- Added old media cleanup at push start
-- Added video player force-stop at push completion
-- Protected ADB commands with safety delays
+- LoadScreen text now fades in smoothly over 2.5 seconds (more professional appearance)
+- Text fades to black smoothly over 2.0 seconds (graceful exit before next video)
+- Next video launches seamlessly when screen is fully black (no mid-animation cutoff)
+- Timing logic aligned: cutoff at 4.5s ensures fade-to-black completes before next video loads
+- Improved user experience during multi-video playback transitions
 - Removed aggressive device connection logic
 
 For deployment details, see CHANGELOG.md
