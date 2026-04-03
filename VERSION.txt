@@ -1,7 +1,7 @@
-CareStream v2.3.1
-Released: 2026-03-31
+CareStream v2.5.1
+Released: 2026-04-03
 
-LATEST STABLE RELEASE - Reconnection fix and device stability improvements
+Android Auto-Queue LoadScreen Fix. FIXED: LoadScreen.mp4 no longer auto-plays after last video. FIXED: Works correctly for any number of assigned videos (1, 2, 10, etc). CRITICAL: Delete LoadScreen before last video starts, ensure zero .mp4 files after playback completes.
 
 Key Fix in v2.3.1:
 - Viewsonic device ADB reconnection: Gracefully handles device disconnect during video playback

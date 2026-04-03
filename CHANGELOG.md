@@ -5,6 +5,98 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.1] - 2026-04-03
+
+### Fixed
+- **LoadScreen Auto-Plays After Last Video** - Critical Android behavior: when last content video finishes, device auto-plays next available .mp4 file (LoadScreen.mp4) before player force-stop executes
+  - Root cause: We were deleting content videos but preserving LoadScreen.mp4, making it the only file on device for Android auto-queue to find
+  - Root cause: Timing window between video end and force-stop allowed Android media player to start queued content
+  - Fixed: Delete LoadScreen.mp4 from device BEFORE the last video starts playing (while previous video still rendering)
+  - Fixed: This ensures when last video ends, ZERO .mp4 files exist on device for Android to auto-queue
+  - Fixed: Works correctly for any number of assigned videos (1 video, 2 videos, 10 videos, etc.)
+  - Sequence: Content videos get deleted after playback → Last video deletes LoadScreen before starting → Last video deleted after playback → Force-stop → Vizabli
+
+## [2.5.0] - 2026-04-02
+
+### Fixed
+- **Multi-Video Push Sequence** - Correct playback order restored: Video 1 → LoadScreen → Video 2 → ... → Vizabli
+  - Root cause: Last video in sequence was waited on twice (2× duration) due to a duplicate `else` wait block
+  - Root cause: No force-stop between videos; Android players auto-queued next `.mp4` alphabetically causing replay of unassigned content
+  - Root cause: Cleanup order was wrong — Vizabli launched before force-stop, leaving competing video activity running
+  - Fixed: Single clean wait path per video; force-stop after every real video; force-stop before Vizabli launch
+
+- **Cache / Auto-Play Replay Bug** - Devices replayed old or unassigned content after a push
+  - Root cause: Player left running after each video; Android players detect next file in folder and auto-queue it
+  - Fixed: `adb_force_stop_video_player()` called immediately after each video ends
+  - Fixed: Force-stop also called at push session start to kill any lingering player from a previous push
+
+- **Viewsonic Player Packages Not Stopped** - `adb_force_stop_video_player` missed Viewsonic-specific players
+  - Added `com.reveldigital.player`, `com.iadea.player.general`, `com.ifpdos.player` to force-stop list
+  - Force-stop list now mirrors the launch strategy list exactly
+
+- **LoadScreen.mp4 Generation Crash Loop** - Container failed to start with `ModuleNotFoundError: No module named 'cv2'`
+  - Root cause: `entrypoint.sh` used Python + OpenCV to generate `LoadScreen.mp4`; cv2/numpy not installed
+  - Fixed: Replaced Python/cv2 block with a single `ffmpeg` command (ffmpeg already installed in container)
+  - LoadScreen is now a 1080×1080 square video (works in both portrait and landscape orientations)
+  - Font size calculated proportionally (`VIDEO_W / 15`) so text fills ~80% of width at any resolution
+  - Falls back to plain black screen if font package unavailable
+
+- **LoadScreen Always Regenerated on Startup** - Stale cached version from volume no longer served
+  - `entrypoint.sh` now always regenerates `LoadScreen.mp4` on every container start
+  - Ensures any entrypoint changes are reflected immediately without manual file deletion
+
+- **Seamless LoadScreen → Next Video Transition** - 1-second launcher flash between LoadScreen and next video
+  - Root cause: `adb_force_stop_video_player()` was called after LoadScreen, dropping to launcher before next video
+  - Fixed: Next video intent fires directly into the running player — no force-stop between LoadScreen and next video
+  - Force-stop between real videos is preserved (still needed to prevent auto-queue replay)
+
+### Added
+- `fonts-dejavu-core` system package in Dockerfile for ffmpeg `drawtext` filter support
+- Font existence check with graceful fallback in `entrypoint.sh`
+
+---
+
+## [2.4.0] - 2026-04-01
+
+### Added
+- **User-Configurable Timezone Selector** - New UI setting to control timezone display globally
+  - Settings → Timezone dropdown with 18 common timezones (EST, CST, PST, UTC, Europe, Asia, Australia)
+  - Timezone stored in database (persistent across restarts)
+  - Applies to ALL timestamps: room check times, push timestamps, media upload times, playlist creation times
+  - No container rebuild required; change timezone anytime
+  - Timezone priority: Database Setting (UI) → TZ Environment Variable (fallback) → Default (America/New_York)
+  - Works with any timezone across any region (PST, EST, CST, GMT, JST, AEST, etc.)
+
+### Fixed
+- **Timestamp Timezone Offset Issues** - Times displayed wrong offset in any timezone
+  - Root cause: Backend using unreliable `datetime.utcnow()` which ignored TZ environment variable
+  - Secondary cause: Frontend hardcoded to America/Chicago timezone, couldn't adapt to changes
+  - Solution: Implemented timezone-aware datetime objects with explicit ZoneInfo handling
+  - Created `app/utils.py` with `get_tz_aware_now()` and `get_tz_aware_now_with_app()` functions
+  - Both functions support database-driven timezone selection with env variable fallback
+  - Result: All timestamps now display correct time in selected timezone, works in any region
+
+### Changed
+- **Backend Timestamp Architecture** - All timestamp creation now uses timezone-aware functions
+  - Services (heartbeat, push) use `get_tz_aware_now_with_app()` to read database timezone
+  - Routes use `get_tz_aware_now()` with TZ env var fallback for consistency
+  - Models: Playlist, MediaFile, Room now create timestamps with correct timezone
+  - All timestamp fields: `last_checked`, `last_push_time`, `uploaded_at`, `created_at`, `started_at`, `completed_at`
+
+- **Frontend Timezone Handling** - Dashboard and MediaManager now dynamic
+  - Components fetch timezone from API on load
+  - `formatTime()` uses fetched timezone instead of hardcoded value
+  - MediaManager playlist creation times display in user's selected timezone
+  - All `toLocaleString()` calls use dynamic timezone from state
+
+### Technical Details
+- New model: `app/models/settings.py` - Settings key-value store in database
+- New API endpoints: `/api/settings/timezone` (GET/POST)
+- New module: `app/utils.py` - Timezone-aware datetime utilities using `zoneinfo.ZoneInfo`
+- Database: Automatic settings table creation on app startup
+- Default: If no timezone set, uses TZ env var or America/New_York
+- Fallback: If database unavailable, uses TZ env var gracefully
+
 ## [2.3.1] - 2026-03-31
 
 ### Fixed
